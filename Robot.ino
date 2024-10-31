@@ -12,7 +12,7 @@ QTRSensors qtr;
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 MFRC522::MIFARE_Key key;
 int blockCount = 2;
-byte rfidReadbackBlocks[2][18];
+byte rfidReadbackBlocks[blockCount][18];
 
 // ---------- Variables ---------- //
 
@@ -103,6 +103,7 @@ int thresh = 100;
 bool buttoned = false;
 bool finishedLineThreashing = false;
 bool finishedReadingCard = false;
+bool hasReadCard = false;
 
 int sonemin = 69420;
 int sonemax = 0;
@@ -121,66 +122,69 @@ void loop() {
   		buttoned = true;
 	
   	if (buttoned) {
-    		if (codeSelector == 0) {
-    			if (finishedLineThreashing) {
-    				lineSensor();
-    
-    				motorPulse(true, left <= thresh, true, right <= thresh);
-    			} else {
-    				int scanCount = 30;
-    				for (int i = 0; i < scanCount; i++) {
-    					qtr.read(sensorValues);
-    					if (i > scanCount / 2)
-    						motorPulse(false, false, true, true);
-    					else
-    						motorPulse(false, false, true, false);
-    
-    					sonemin = min(sonemin, sensorValues[0]);
-    					sonemax = max(sonemax, sensorValues[0]);
-    			
-    					stwomin = min(stwomin, sensorValues[1]);
-    					stwomax = max(stwomax, sensorValues[1]);
-    			
-    					sthreemin = min(sthreemin, sensorValues[2]);
-    					sthreemax = max(sthreemax, sensorValues[2]);
-    
-    					sfourmin = min(sfourmin, sensorValues[3]);
-    					sfourmax = max(sfourmax, sensorValues[3]);
-    
-    					delay(200);
-    				}
-    
-    				finishedLineThreashing = true;
+    	if (codeSelector == 0) {
+    		if (finishedLineThreashing) {
+    			lineSensor();
+
+    			motorPulse(true, left <= thresh, true, right <= thresh);
+    		} else {
+    			int scanCount = 30;
+    			for (int i = 0; i < scanCount; i++) {
+    				qtr.read(sensorValues);
+    				if (i > scanCount / 2)
+    					motorPulse(false, false, true, true);
+    				else
+    					motorPulse(false, false, true, false);
+
+    				sonemin = min(sonemin, sensorValues[0]);
+    				sonemax = max(sonemax, sensorValues[0]);
+    		
+    				stwomin = min(stwomin, sensorValues[1]);
+    				stwomax = max(stwomax, sensorValues[1]);
+    		
+    				sthreemin = min(sthreemin, sensorValues[2]);
+    				sthreemax = max(sthreemax, sensorValues[2]);
+
+    				sfourmin = min(sfourmin, sensorValues[3]);
+    				sfourmax = max(sfourmax, sensorValues[3]);
+
+    				delay(200);
     			}
-    		} else if (codeSelector == 1) {
-    			sonicSensor();
-    
-    			if (timmyFound)
-    				motorPulse(true, false, true, false);
-    			else
-    				motorPulse(true, true, true, false);
-    		} else if (codeSelector == 2) {
-    			// Look for new cards
-        		if (!mfrc522.PICC_IsNewCardPresent())
-            		return;
-        		// Select one of the cards
-        		if (!mfrc522.PICC_ReadCardSerial())
-            		return;
-    
-    			motorTime = 500;
-    
-    			for (int i = 0; i < blockCount; i++)
-    				readBlock(i, rfidReadbackBlocks[i]);
-    
-    			for (int j = 0; j < blockCount; j++) {
-    				for (int a = 0; a < 18; a++) {
-    					if (rfidReadbackBlocks[j][a] == 0)
-    						continue;
-    
-    					moveByChar((char)rfidReadbackBlocks[j][a]);
-    				}	
-    			}
+
+    			finishedLineThreashing = true;
     		}
+    	} else if (codeSelector == 1) {
+    		sonicSensor();
+
+    		if (timmyFound)
+    			motorPulse(true, false, true, false);
+    		else
+    			motorPulse(true, true, true, false);
+    	} else if (codeSelector == 2) {
+			if (!hasReadCard) {
+				// Look for new cards
+				if (!mfrc522.PICC_IsNewCardPresent())
+					return;
+				// Select one of the cards
+				if (!mfrc522.PICC_ReadCardSerial())
+					return;
+	
+				motorTime = 500;
+				hasReadCard = true;
+	
+				for (int i = 0; i < blockCount; i++)
+					readBlock(i, rfidReadbackBlocks[i]);
+			}
+			
+    		for (int j = 0; j < blockCount; j++) {
+    			for (int a = 0; a < 18; a++) {
+    				if (rfidReadbackBlocks[j][a] == 0)
+    					continue;
+
+    				moveByChar((char)rfidReadbackBlocks[j][a]);
+    			}	
+    		}
+    	}
   	}
 }
 
